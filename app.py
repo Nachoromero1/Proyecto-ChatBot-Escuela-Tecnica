@@ -6,16 +6,15 @@ import random
 from flask_cors import CORS
 import nltk
 
-# Descargar datos necesarios de NLTK
+
 nltk.download('punkt')
 nltk.download('stopwords')
 
 app = Flask(__name__)
 CORS(app)
 
-ps = PorterStemmer()  # Inicializar el PorterStemmer
+ps = PorterStemmer()  
 
-# Definir las respuestas
 responses = {
     "saludos": {
         "patterns": ["hola", "hello", "hi", "hey", "qué tal", "buenas"],
@@ -97,20 +96,17 @@ responses = {
 
 import re
 
-# Función para determinar la intención usando búsqueda con expresiones regulares
 def get_intent(user_message):
-    # Convertir el mensaje a minúsculas para hacer la búsqueda más consistente
+
     user_message = user_message.lower()
 
-    # Buscar patrones en cada categoría
     for intent, data in responses.items():
         for pattern in data['patterns']:
-            # Si el patrón está en el mensaje del usuario, devolver el intent
+        
             if re.search(r'\b' + re.escape(pattern) + r'\b', user_message):
                 return intent
     return None
 
-# Definir la ruta /chat
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
@@ -121,6 +117,5 @@ def chat():
 
     return jsonify({"response": response})
 
-# Ejecutar la aplicación
 if __name__ == '__main__':
     app.run(debug=True)
