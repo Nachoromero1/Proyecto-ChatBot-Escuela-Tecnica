@@ -1,120 +1,87 @@
 from flask import Flask, request, jsonify
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
 import random
 from flask_cors import CORS
-import nltk
-
-
-nltk.download('punkt')
-nltk.download('stopwords')
+import re
 
 app = Flask(__name__)
 CORS(app)
 
-ps = PorterStemmer()  
-
+# Diccionario de intenciones y respuestas específico para la Escuela Técnica N°1 de Monteros
 responses = {
-    "saludos": {
-        "patterns": ["hola", "hello", "hi", "hey", "qué tal", "buenas"],
-        "responses": ["¡Hola! ¿En qué puedo ayudarte?", "¡Hey! ¿Cómo andás?", "Hola, ¿cómo puedo asistirte hoy?"]
-    },
-    "programación": {
-        "patterns": ["programación", "python", "javascript", "código", "coding"],
+    "historia_escuela": {
+        "patterns": ["historia", "fundación", "fundada", "origen", "misión"],
         "responses": [
-            "Python es un excelente lenguaje de programación para principiantes y expertos.",
-            "JavaScript se usa principalmente en el desarrollo web. ¿Te gustaría saber más?",
-            "¿Necesitás ayuda con algún problema de código específico?"
+            "La Escuela Técnica N°1 de Monteros fue fundada en el año 1953, y desde entonces ha formado a generaciones de técnicos en diversas áreas.",
+            "La misión de la Escuela Técnica N°1 de Monteros es ofrecer educación técnica de calidad, preparando a los estudiantes para enfrentar los desafíos del ámbito laboral y promover el desarrollo industrial de la región."
         ]
     },
-    "historia": {
-        "patterns": ["historia", "history", "pasado", "histórico"],
+    "especialidades": {
+        "patterns": ["especialidades", "carreras", "ofrecen", "enseñan"],
         "responses": [
-            "La Segunda Guerra Mundial tuvo lugar de 1939 a 1945.",
-            "¿Sabías que la Revolución Francesa comenzó en 1789?",
-            "La Primera Guerra Mundial fue de 1914 a 1918. ¿Querés saber algo más específico?"
+            "En la Escuela Técnica N°1 de Monteros, se imparten especialidades como Mecánica, Electrónica, Informática, y Electricidad, brindando una formación técnica integral.",
+            "En la especialidad de Informática, los estudiantes aprenden programación, redes y desarrollo de software, además de realizar proyectos de desarrollo de aplicaciones y manejo de sistemas."
         ]
     },
-    "salud": {
-        "patterns": ["salud", "health", "ejercicio", "bienestar"],
+    "instalaciones_talleres": {
+        "patterns": ["instalaciones", "talleres", "laboratorios"],
         "responses": [
-            "Hacer ejercicio regularmente es esencial para la salud.",
-            "Beber suficiente agua al día ayuda a mantener el cuerpo hidratado.",
-            "Recuerda visitar al médico regularmente para un chequeo."
+            "La Escuela Técnica N°1 de Monteros cuenta con talleres de última tecnología donde los estudiantes realizan prácticas de mecánica, electricidad y electrónica, permitiéndoles aplicar los conocimientos teóricos de forma práctica.",
+            "Sí, la escuela tiene varios laboratorios de informática equipados con computadoras y herramientas de software modernas, donde los estudiantes practican programación, diseño gráfico y mantenimiento de redes."
         ]
     },
-    "entretenimiento": {
-        "patterns": ["película", "movie", "entretenimiento", "música", "series"],
+    "actividades_extracurriculares": {
+        "patterns": ["actividades", "extracurriculares", "competiciones", "torneos"],
         "responses": [
-            "Algunas de las series populares actualmente son 'The Witcher' y 'Stranger Things'.",
-            "La película 'Inception' es un clásico moderno del cine de ciencia ficción.",
-            "La música es una excelente forma de relajarse. ¿Te gusta algún género en particular?"
+            "La escuela ofrece actividades extracurriculares como clubes de robótica, torneos de matemáticas, ferias de ciencia y tecnología, y programas de extensión para que los estudiantes exploren sus intereses.",
+            "Los estudiantes de la Escuela Técnica N°1 de Monteros participan en competiciones nacionales de robótica, olimpiadas de matemática y ferias de ciencias, donde han obtenido reconocimientos en varias ocasiones."
         ]
     },
-    "expresiones_argentinas": {
-        "patterns": ["che", "mate", "quilombo", "pibe", "mina", "boludo"],
+    "docentes_comunidad": {
+        "patterns": ["docentes", "profesores", "comunidad"],
         "responses": [
-            "¡El mate es un clásico! Nada mejor para acompañar una charla.",
-            "¿Sabías que 'quilombo' viene de la palabra para las comunidades de esclavos en Brasil?",
-            "Ser 'boludo' depende de la situación, ¡pero a veces es un cumplido en Argentina!",
-            "En Argentina, decimos 'pibe' o 'mina' para referirnos a chicos y chicas de manera coloquial."
+            "La Escuela Técnica N°1 de Monteros cuenta con docentes experimentados en cada especialidad, son reconocidos por su dedicación y experiencia en el área de la mecánica e informática.",
+            "La comunidad de la Escuela Técnica N°1 de Monteros es unida y activa, con estudiantes y docentes comprometidos en el desarrollo académico y personal. Se organizan eventos donde participan alumnos, exalumnos y familias."
         ]
     },
-    "escuela_tecnica_monteros": {
-        "patterns": ["escuela técnica", "escuela monteros", "tecnica monteros", "escuela n1 monteros"],
+    "vinculacion_industria": {
+        "patterns": ["convenios", "empresas", "industria", "prácticas"],
         "responses": [
-            "La Escuela Técnica N°1 de Monteros es una institución educativa con especialidades en mecánica e informatica.",
-            "En la Técnica N°1 de Monteros, los estudiantes aprenden tanto teoría como práctica en talleres especializados.",
-            "La Escuela Técnica N°1 de Monteros es reconocida por formar técnicos con habilidades en mecánica, electricidad e informatica."
+            "La Escuela Técnica N°1 de Monteros colabora con empresas locales e industrias, ofreciendo pasantías para que los estudiantes puedan adquirir experiencia práctica en el campo laboral.",
+            "Los estudiantes realizan prácticas en empresas donde desarrollan proyectos reales, aplicando sus conocimientos en situaciones prácticas. Esto les permite estar mejor preparados para ingresar al mercado laboral."
         ]
     },
-    "cultura_argentina": {
-        "patterns": ["fútbol", "asado", "empanadas", "alfajores", "tango"],
+    "proyectos_logros": {
+        "patterns": ["proyectos", "logros", "premios", "destacados"],
         "responses": [
-            "El asado argentino es una tradición y una excusa perfecta para juntarse en familia o con amigos.",
-            "El fútbol es casi una religión en Argentina. ¿Tenés algún equipo favorito?",
-            "El tango es un género musical nacido en Buenos Aires, ¡ideal para quienes disfrutan bailar!",
-            "Los alfajores son un clásico argentino. Si no los probaste aún, ¡te estás perdiendo de algo bueno!"
-        ]
-    },
-    "despedida": {
-        "patterns": ["adiós", "bye", "goodbye", "nos vemos", "chau"],
-        "responses": ["¡Hasta luego!", "Adiós, ¡que tengas un buen día!", "Nos vemos, cuídate.", "Chau, ¡nos vemos la próxima!"]
-    },
-    "costumbres_locales": {
-        "patterns": ["siesta", "mate", "fiesta", "costumbres argentinas"],
-        "responses": [
-            "La siesta es sagrada en muchas partes del país, especialmente después de un buen almuerzo.",
-            "El mate es un ritual diario en Argentina, perfecto para acompañar cualquier conversación.",
-            "Las fiestas en Argentina suelen empezar tarde y terminar a la madrugada. ¡Se pasa genial!",
-            "Las costumbres argentinas están llenas de reuniones, asados, y mucha buena onda."
+            "Entre los proyectos destacados, los estudiantes han creado un sistema de automatización para talleres y un robot para competiciones. Estos logros muestran su creatividad y habilidades técnicas.",
+            "La escuela ha recibido varios premios en olimpiadas de ciencias y tecnología. En 2022, un grupo de estudiantes ganó el primer lugar en la competencia de robótica nacional."
         ]
     }
+    
+    
 }
 
 
-import re
-
-def get_intent(user_message):
-
+def get_intent(user_message):   
     user_message = user_message.lower()
-
     for intent, data in responses.items():
         for pattern in data['patterns']:
-        
             if re.search(r'\b' + re.escape(pattern) + r'\b', user_message):
                 return intent
     return None
+
+def get_response(intent):
+    if intent in responses:
+        return random.choice(responses[intent]["responses"])
+    else:
+        return "Lo siento, no entiendo esa pregunta. ¿Podrías reformularla?"
 
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     user_message = data.get('message', "")
-
     intent = get_intent(user_message)
-    response = random.choice(responses[intent]['responses']) if intent else "Lo siento, no entiendo esa pregunta. ¿Podrías reformularla?"
-
+    response = get_response(intent)
     return jsonify({"response": response})
 
 if __name__ == '__main__':
